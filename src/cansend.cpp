@@ -1,46 +1,3 @@
-/* SPDX-License-Identifier: (GPL-2.0-only OR BSD-3-Clause) */
-/*
- * cansend.c - send CAN-frames via CAN_RAW sockets
- *
- * Copyright (c) 2002-2007 Volkswagen Group Electronic Research
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- * 3. Neither the name of Volkswagen nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
- *
- * Alternatively, provided that this notice is retained in full, this
- * software may be distributed under the terms of the GNU General
- * Public License ("GPL") version 2, in which case the provisions of the
- * GPL apply INSTEAD OF those given above.
- *
- * The provided data structures and external interfaces from this code
- * are not restricted to be used by modules with a GPL compatible license.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
- * DAMAGE.
- *
- * Send feedback to <linux-can@vger.kernel.org>
- *
- */
 #include <ros/ros.h>
 #include <string.h>
 
@@ -156,11 +113,7 @@ void DealModelInput()
 
 void SubMotionPlanningFbkHandler(const nav_msgs::Odometry::ConstPtr& msg)
 {
-    //_motionPlanningFbk = *msg;
-	// ROS_INFO("motion:%f", _motionPlanningFbk.target_vehicle_velocity);
-	// 测试用，模拟motion心跳
     _model_Obj.JS6904ChassisOnboardSF_U.motion_msg_heart++;
-	// ROS_INFO("heart:%d", _model_Obj.JS6904ChassisOnboardSF_U.motion_msg_heart);
 }
 
 void SubRemoteCmdHandler(const nav_msgs::Odometry::ConstPtr& msg)
@@ -236,7 +189,6 @@ int main(int argc, char **argv)
 	int data3[8] = {10,12,255,2,50,15,12,7};
 	
 	struct ifreq ifr;
-	printf("95xk");
 
 	int wheel_speed_FL_fault = 1;
 	int wheel_speed_FL = 8191;
@@ -313,28 +265,17 @@ int main(int argc, char **argv)
 
 	 _model_Obj.initialize();
 
-	/* check command line options */
-	// if (argc != 3) {
-	// 	printf("100xk");
-	// 	print_usage(argv[0]);
-	// 	return 1;
-	// }
-
-	/* parse CAN frame */
-	// required_mtu = parse_canframe(argv[2], &frame);
-	/* open socket */
 	if ((s = socket(PF_CAN, SOCK_RAW, CAN_RAW)) < 0) {
-		printf("116xk");
 		perror("socket");
 		return 1;
 	}
+	
 	// strncpy(ifr.ifr_name, argv[1], IFNAMSIZ - 1);
 	// 在程序中给定can0，只在can0上发送
 	strncpy(ifr.ifr_name, "can0", IFNAMSIZ - 1);
 	ifr.ifr_name[IFNAMSIZ - 1] = '\0';
 	ifr.ifr_ifindex = if_nametoindex(ifr.ifr_name);
 	if (!ifr.ifr_ifindex) {
-		printf("125xk");
 		perror("if_nametoindex");
 		return 1;
 	}
@@ -342,14 +283,10 @@ int main(int argc, char **argv)
 	memset(&addr, 0, sizeof(addr));
 	addr.can_family = AF_CAN;
 	addr.can_ifindex = ifr.ifr_ifindex;
-	/* disable default receive filter on this RAW socket */
-	/* This is obsolete as we do not read from the socket at all, but for */
-	/* this reason we can remove the receive list in the Kernel to save a */
-	/* little (really a very little!) CPU usage.                          */
+	
 	setsockopt(s, SOL_CAN_RAW, CAN_RAW_FILTER, NULL, 0);
 
 	if (bind(s, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-		printf("166xk");
 		perror("bind");
 		return 1;
 	}
@@ -361,8 +298,6 @@ while (ros::ok())
     _model_Obj.step();
 	// parse_canframe函数发送标准帧时返回值为canframe结构体的size，为16
 	required_mtu = 16;
-	// 用于测试发送内容及长度
-	// parse_canframe("666#aabbccdd11223344", &frame);
 
 	// 定义发送ID
 	std::string send_frame_str1 = "300#";
@@ -438,7 +373,6 @@ while (ros::ok())
 		
 	// send msg1
 	if (!required1){
-		printf("109xk");
 		fprintf(stderr, "\nWrong CAN-frame format!\n\n");
 		print_usage(argv[0]);
 		return 1;
@@ -446,7 +380,6 @@ while (ros::ok())
 
 
 	if (required1 > (int)CAN_MTU) {
-		printf("156xk");
 		/* check if the frame fits into the CAN netdevice */
 		if (ioctl(s, SIOCGIFMTU, &ifr) < 0) {
 			perror("SIOCGIFMTU");
@@ -473,14 +406,12 @@ while (ros::ok())
 	
 	if (write(s, &ctrl_send1, required1) != required1) 
 	{
-		printf("new send");
 		perror("write");
 		return 1;
 	}
 	
 	// send msg2
 	if (!required2){
-		printf("109xk");
 		fprintf(stderr, "\nWrong CAN-frame format!\n\n");
 		print_usage(argv[0]);
 		return 1;
@@ -488,7 +419,6 @@ while (ros::ok())
 	
 	
 	if (required2 > (int)CAN_MTU) {
-		printf("156xk");
 		/* check if the frame fits into the CAN netdevice */
 		if (ioctl(s, SIOCGIFMTU, &ifr) < 0) {
 			perror("SIOCGIFMTU");
@@ -515,14 +445,12 @@ while (ros::ok())
 	
 	if (write(s, &ctrl_send2, required2) != required2) 
 		{
-			printf("new send");
 			perror("write");
 			return 1;
 		}
 	
 	// send msg3
 	if (!required3){
-		printf("109xk");
 		fprintf(stderr, "\nWrong CAN-frame format!\n\n");
 		print_usage(argv[0]);
 		return 1;
@@ -530,7 +458,6 @@ while (ros::ok())
 	
 	
 	if (required3 > (int)CAN_MTU) {
-		printf("156xk");
 		/* check if the frame fits into the CAN netdevice */
 		if (ioctl(s, SIOCGIFMTU, &ifr) < 0) {
 			perror("SIOCGIFMTU");
@@ -557,7 +484,6 @@ while (ros::ok())
 	
 	if (write(s, &ctrl_send3, required3) != required3) 
 		{
-			printf("new send");
 			perror("write");
 			return 1;
 		}
@@ -565,7 +491,6 @@ while (ros::ok())
 	loop_rate.sleep();
 }
 
-	// cout<<s<<endl;
 	close(s);
 
 	return 0;
