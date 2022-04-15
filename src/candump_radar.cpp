@@ -91,6 +91,7 @@ struct if_info { /* bundled information per open socket */
 	__u32 dropcnt;
 	__u32 last_dropcnt;
 };
+
 static struct if_info sock_info[MAXSOCK];
 
 static char devname[MAXIFNAMES][IFNAMSIZ+1];
@@ -227,6 +228,7 @@ int main(int argc, char **argv)
 	struct epoll_event event_setup = {
 		.events = EPOLLIN, /* prepare the common part */
 	};
+	
 	unsigned char timestamp = 0;
 	unsigned char hwtimestamp = 0;
 	unsigned char down_causes_exit = 1;
@@ -301,9 +303,7 @@ int main(int argc, char **argv)
 		ptr = (char*)"can3";//only can0
 		nptr = strchr(ptr, ',');
 
-// #ifdef DEBUG
 		printf("open %d '%s'.\n", i, ptr);
-// #endif
 
 		obj->s = socket(PF_CAN, SOCK_RAW, CAN_RAW);
 		if (obj->s < 0) {
@@ -337,10 +337,6 @@ int main(int argc, char **argv)
 		memset(&ifr.ifr_name, 0, sizeof(ifr.ifr_name));
 		strncpy(ifr.ifr_name, ptr, nbytes);
 
-#ifdef DEBUG
-		// printf("using interface name '%s'.\n", ifr.ifr_name);
-#endif
-
 		if (strcmp(ANYDEV, ifr.ifr_name) != 0) {
 			if (ioctl(obj->s, SIOCGIFINDEX, &ifr) < 0) {
 				perror("SIOCGIFINDEX");
@@ -362,12 +358,6 @@ int main(int argc, char **argv)
 				ptr++; /* hop behind the ',' */
 				ptr = strchr(ptr, ','); /* exit condition */
 			}
-
-			// rfilter = malloc(sizeof(struct can_filter) * numfilter);
-			// if (!rfilter) {
-			// 	fprintf(stderr, "Failed to create filter space!\n");
-			// 	return 1;
-			// }
 
 			numfilter = 0;
 			err_mask = 0;
@@ -429,9 +419,9 @@ int main(int argc, char **argv)
 			/* try SO_RCVBUFFORCE first, if we run with CAP_NET_ADMIN */
 			if (setsockopt(obj->s, SOL_SOCKET, SO_RCVBUFFORCE,
 				       &rcvbuf_size, sizeof(rcvbuf_size)) < 0) {
-#ifdef DEBUG
+
 				printf("SO_RCVBUFFORCE failed so try SO_RCVBUF ...\n");
-#endif
+
 				if (setsockopt(obj->s, SOL_SOCKET, SO_RCVBUF,
 					       &rcvbuf_size, sizeof(rcvbuf_size)) < 0) {
 					perror("setsockopt SO_RCVBUF");
@@ -596,7 +586,7 @@ int main(int argc, char **argv)
 				} else if (cmsg->cmsg_type == SO_RXQ_OVFL)
 					memcpy(&obj->dropcnt, CMSG_DATA(cmsg), sizeof(__u32));
 			}
-// printf("698xk");
+		
 			/* check for (unlikely) dropped frames on this specific socket */
 			if (obj->dropcnt != obj->last_dropcnt) {
 
@@ -657,8 +647,6 @@ int main(int argc, char **argv)
 				goto out_fflush; /* no other output to stdout */
 			}
 
-			// printf("color%s", (color > 2) ? col_on[idx % MAXCOL] : "");
-
 			switch (timestamp) {
 
 			case 'a': /* absolute with timestamp */
@@ -700,9 +688,6 @@ int main(int argc, char **argv)
 				break;
 			}//end of switch
 
-			// printf(" %s", (color && (color < 3)) ? col_on[idx % MAXCOL] : "");
-			// printf("%*s", max_devname_len, devname[idx]);
-
 			if (extra_msg_info) {
 
 				if (msg.msg_flags & MSG_DONTROUTE)
@@ -710,17 +695,13 @@ int main(int argc, char **argv)
 				else
 					printf ("  RX %s", extra_m_info[frame.flags & 3]);
 			}
-			// printf("%s  ", (color == 1) ? col_off : "");
 
-			// fprint_long_canframe(stdout, &frame, NULL, view, maxdlen);
-// printf("%x \n", frame.can_id);
-std::cout<<"Obj_Num="<<Obj_Num<<std::endl;
-			// 0x61A no error!
+			std::cout<<"Obj_Num="<<Obj_Num<<std::endl;
+			
 			if(frame.can_id == 0x61A)
 			{	
 				Obj_Num = frame.data[0];
 				v.clear();
-				// no error!
 			}
 
 			// 0x61B || 0x61C || 0x61D no error!
@@ -728,8 +709,7 @@ std::cout<<"Obj_Num="<<Obj_Num<<std::endl;
 			{
 				for (int i = 0; i < frame.len; i++)
 				{
-					v.push_back(frame.data[i]); //v.push_back(m->DATA[i]);
-											//std::cout<<"Obj_Num11111="<<Obj_Num<<std::endl;
+					v.push_back(frame.data[i]);
 				}
 			}
 
@@ -741,7 +721,6 @@ std::cout<<"Obj_Num="<<Obj_Num<<std::endl;
 				jsk_recognition_msgs::BoundingBoxArray BOXS;
 				autoware_msgs::DetectedObjectArray OBJECT;
 				
-				// for test no error!
 				for (int j = 0; j < Obj_Num; j++)
 				{
 					Obj_ID = v[j * 8];
@@ -775,8 +754,7 @@ std::cout<<"Obj_Num="<<Obj_Num<<std::endl;
 					object.id = Obj_ID;
 					object.label = j + 1;
 					object.valid = 1;
-					// 并为找到该消息格式中存在
-					// object.sensor_type = 0;
+					
 					object.pose.position.x = -Obj_DistLat;
 					object.pose.position.y = Obj_DistLong + 5.5;
 					object.pose.position.z = 0;
@@ -784,17 +762,8 @@ std::cout<<"Obj_Num="<<Obj_Num<<std::endl;
 					object.velocity.linear.y = Obj_ArelLat;
 					OBJECT.objects.push_back(object);
 				}
-
-				// test no error!
 				BOXS.header.frame_id = "/radar";
 				BOXS.header.stamp = ros::Time::now();
-
-				// 没有timestamp属性
-				// OBJECT.time_stamp = ros::Time::now().toSec();
-
-				// 此处并未找到objects_amount选项,将其改为了推荐的objects
-				// OBJECT.objects_amount = Obj_Num;
-				// OBJECT.objects = Obj_Num;
 				
 				force_pub.publish(BOXS);
 				pubObjectArray.publish(OBJECT);
