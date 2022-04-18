@@ -43,6 +43,7 @@ int LowBeamLampRequest = 0;
 int SteeringWheelTurnRequest = 0;
 int SlowingDownRequest = 0;
 int RormentRequest = 0;
+int SystemState = 0;
 int SystemFaultCode = 0;
 int Life = 0;
 
@@ -128,8 +129,8 @@ void DealModelInput()
 void SubRemoteCmdHandler(const nav_msgs::Odometry::ConstPtr& msg)
 {
 	VCU_DrivingMode = msg->pose.pose.positon.x;
-	ParkingStatusRequest = msg->pose.pose.positon.y;
-	GearRequest = msg->pose.pose.positon.z;
+	ParkingStatusRequest = msg->pose.pose.position.y;
+	GearRequest = msg->pose.pose.position.z;
 	TurnSignalRequest = msg->pose.pose.orientation.x;
 	AutomaticDoorOpeningRequest = msg->pose.pose.orientation.y; 
 	StopLampRequest = msg->pose.pose.orientation.z; 
@@ -137,8 +138,9 @@ void SubRemoteCmdHandler(const nav_msgs::Odometry::ConstPtr& msg)
 	SteeringWheelTurnRequest = (msg->twist.twist.linear.x + 870) * 10;
 	SlowingDownRequest = msg->twist.twist.linear.y * 2.5;
 	RormentRequest = msg->twist.twist.linear.z * 2.5;
-	SystemFaultCode = msg->twist.twist.angular.x;
-	Life = msg->twist.twist.linear.y;
+	SystemState = msg->twist.twist.angular.x
+	SystemFaultCode = msg->twist.twist.angular.y;
+	Life = msg->twist.twist.linear.z;
 }
 
 int main(int argc, char **argv)
@@ -218,7 +220,7 @@ int main(int argc, char **argv)
 		// 定义发送数据的内容，数据来自模型；数据放入字符串中
 		std::string send_data_str1;
 		std::string send_data_str2;
-	
+		
 		// data1
 		data1[0] = (ParkingStatusRequest * 64) | VCU_DrivingMode;
 		data1[1] = (LowBeamLampRequest * 128) | (StopLampRequest * 32) | (AutomaticDoorOpeningRequest * 16) | (TurnSignalRequest * 4) | GearRequest;
@@ -306,8 +308,11 @@ int main(int argc, char **argv)
 				perror("write");
 				return 1;
 			}
+		
+		// sleep 
+		loop_rate.sleep();
 	}
-
+	
 	close(s);
 
 	return 0;
