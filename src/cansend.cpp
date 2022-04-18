@@ -171,7 +171,6 @@ int main(int argc, char **argv)
 	// required
 	int required1;
 	int required2;
-	int required3;
 	
 	int mtu;
 	int enable_canfd = 1;
@@ -181,12 +180,10 @@ int main(int argc, char **argv)
 	// struct ctrl_send
 	struct canfd_frame ctrl_send1;
 	struct canfd_frame ctrl_send2;
-	struct canfd_frame ctrl_send3;
 	
 	// define data
-	int data1[8] = {10,12,255,2,50,15,12,7};
-	int data2[8] = {10,12,255,2,50,15,12,7};
-	int data3[8] = {10,12,255,2,50,15,12,7};
+	int data1[10] = {0};
+	int data2[10] = {0};
 	
 	struct ifreq ifr;
 
@@ -254,7 +251,9 @@ int main(int argc, char **argv)
 	int AutomaticDoorOpeningRequest = 1;
 	int StopLampRequest = 1;
 	int LowBeamLampRequest = 1;
-	int SteeringWheelTurnRequest = 5000;
+	
+	int SteeringWheelTurnRequest = 5000; // 在定义里修改偏移量
+	
 	int SlowingDownRequest = 200;
 	int RormentRequest = 1000;
 	int SystemState = 3;
@@ -263,7 +262,7 @@ int main(int argc, char **argv)
 	int DrivingRequestsPercent = 100;
 	int Life = 15;
 
-	 _model_Obj.initialize();
+	_model_Obj.initialize();
 
 	if ((s = socket(PF_CAN, SOCK_RAW, CAN_RAW)) < 0) {
 		perror("socket");
@@ -291,205 +290,109 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-while (ros::ok())
-{
-	ros::spinOnce();
-	DealModelInput();
-    _model_Obj.step();
-	// parse_canframe函数发送标准帧时返回值为canframe结构体的size，为16
-	required_mtu = 16;
-
-	// 定义发送ID
-	std::string send_frame_str1 = "300#";
-	std::string send_frame_str2 = "211#";
-	std::string send_frame_str3 = "201#";
-	
-	// 定义发送数据的内容，数据来自模型；数据放入字符串中
-	std::string send_data_str1;
-	std::string send_data_str2;
-	std::string send_data_str3;
-
-	// data1
-	data1[0] = (SAS1_checksum * 16) | SAS1_msg_counter;
-	data1[1] = (calibrated_status * 2) | steering_angle_valid;
-	data1[2] = steering_angle_spd * 0.25;
-	data1[3] = (((steering_angle + 780) * 10) & 0xff00) >> 8;
-	data1[4] = ((steering_angle + 780) * 10) & 0xff;      //steering_angle错，实际赋值500，显示501.5
-	data1[7] = EPS_ControlMode;
-	
-	// data2
-	data2[0] = (SAS1_checksum * 16) | SAS1_msg_counter;
-	data2[1] = (calibrated_status * 2) | steering_angle_valid;
-	data2[2] = steering_angle_spd * 0.25;
-	data2[3] = (((steering_angle + 780) * 10) & 0xff00) >> 8;
-	data2[4] = ((steering_angle + 780) * 10) & 0xff;      //steering_angle错，实际赋值500，显示501.5
-	data2[7] = EPS_ControlMode;
-	
-	// data3
-	data3[0] = (SAS1_checksum * 16) | SAS1_msg_counter;
-	data3[1] = (calibrated_status * 2) | steering_angle_valid;
-	data3[2] = steering_angle_spd * 0.25;
-	data3[3] = (((steering_angle + 780) * 10) & 0xff00) >> 8;
-	data3[4] = ((steering_angle + 780) * 10) & 0xff;      //steering_angle错，实际赋值500，显示501.5
-	data3[7] = EPS_ControlMode;
-	
-	for(int i = 0;i < 8;i++) {
-		string temp_str1 = dec2hexstr(data1[i], 2);
-		string temp_str2 = dec2hexstr(data2[i], 2);
-		string temp_str3 = dec2hexstr(data3[i], 2);
-		
-		for(int j = 0; j < temp_str1.size(); j++) {
-			send_data_str1.push_back(temp_str1[j]);
-		}
-		
-		for (int k = 0; k < temp_str2.size(); k++) {
-			send_data_str2.push_back(temp_str2[k]);
-		}
-		
-		for (int l = 1; l < temp_str3.size(); l++) {
-			send_data_str3.push_back(temp_str3[l]);
-		}
-	}
-	
-	// msg
-	send_frame_str1 += send_data_str1;	
-	send_frame_str2 += send_data_str2;
-	send_frame_str3 += send_data_str3;
-
-	// define char array
-	char send_msg1[20];
-	char send_msg2[20];
-	char send_msg3[20];
-	
-	// 发送的整个帧转为字符数组，并转为can frame
-	strcpy(send_msg1, send_frame_str1.c_str());
-	strcpy(send_msg2, send_frame_str2.c_str());
-	strcpy(send_msg3, send_frame_str3.c_str());
-	
-	// ROS_INFO("string size:%ld", send_frame_str.size());
-	required1 = parse_canframe(send_msg1, &ctrl_send1);
-	required2 = parse_canframe(send_msg2, &ctrl_send2);
-	required3 = parse_canframe(send_msg3, &ctrl_send3);
-		
-	// send msg1
-	if (!required1){
-		fprintf(stderr, "\nWrong CAN-frame format!\n\n");
-		print_usage(argv[0]);
-		return 1;
-	}
-
-
-	if (required1 > (int)CAN_MTU) {
-		/* check if the frame fits into the CAN netdevice */
-		if (ioctl(s, SIOCGIFMTU, &ifr) < 0) {
-			perror("SIOCGIFMTU");
-			return 1;
-		}
-		mtu = ifr.ifr_mtu;
-
-		if (mtu != CANFD_MTU) {
-			printf("CAN interface is not CAN FD capable - sorry.\n");
-			return 1;
-		}
-
-		/* interface is ok - try to switch the socket into CAN FD mode */
-		if (setsockopt(s, SOL_CAN_RAW, CAN_RAW_FD_FRAMES,
-			       &enable_canfd, sizeof(enable_canfd))){
-			printf("error when enabling CAN FD support\n");
-			return 1;
-		}
-
-		/* ensure discrete CAN FD length values 0..8, 12, 16, 20, 24, 32, 64 */
-		frame.len = can_fd_dlc2len(can_fd_len2dlc(frame.len));
-		
-	}
-	
-	if (write(s, &ctrl_send1, required1) != required1) 
+	while (ros::ok())
 	{
-		perror("write");
-		return 1;
-	}
+		ros::spinOnce();
+		DealModelInput();
+		_model_Obj.step();
+		required_mtu = 16;
 	
-	// send msg2
-	if (!required2){
-		fprintf(stderr, "\nWrong CAN-frame format!\n\n");
-		print_usage(argv[0]);
-		return 1;
-	}
+		// 定义发送ID
+		std::string send_frame_str1 = "0x18FF909F";
+		std::string send_frame_str2 = "0x18EF918F";
+		
+		// 定义发送数据的内容，数据来自模型；数据放入字符串中
+		std::string send_data_str1;
+		std::string send_data_str2;
 	
+		// data1
+		data1[0] = (ParkingStatusRequest * 64) | VCU_DrivingMode;
+		data1[1] = (LowBeamLampRequest * 128) | (StopLampRequest * 32) | (AutomaticDoorOpeningRequest * 16) | (TurnSignalRequest * 4) | GearRequest;
+		data1[2] = ((SteeringWheelTurnRequest + 870) * 10) & 0xff; 
+		data1[3] = (((SteeringWheelTurnRequest + 870) * 10) & 0xff00) >> 8;
+		data1[4] = (SlowingDownRequest * 2.5);
+		data1[5] = RormentRequest * 2.5;
+		
+		// data2
+		data2[0] = SystemState;
+		data2[1] = SystemFaultCode;
+		data2[7] = Life << 4;
+		
+		for(int i = 0;i < 8;i++) {
+			string temp_str1 = dec2hexstr(data1[i], 2);
+			string temp_str2 = dec2hexstr(data2[i], 2);
+			
+			for(int j = 0; j < temp_str1.size(); j++) {
+				send_data_str1.push_back(temp_str1[j]);
+			}
+			
+			for (int k = 0; k < temp_str2.size(); k++) {
+				send_data_str2.push_back(temp_str2[k]);
+			}
+		}
+		
+		// msg
+		send_frame_str1 += send_data_str1;	
+		send_frame_str2 += send_data_str2;
 	
-	if (required2 > (int)CAN_MTU) {
-		/* check if the frame fits into the CAN netdevice */
-		if (ioctl(s, SIOCGIFMTU, &ifr) < 0) {
-			perror("SIOCGIFMTU");
+		// define char array
+		char send_msg1[20];
+		char send_msg2[20];
+		
+		// 发送的整个帧转为字符数组，并转为can frame
+		strcpy(send_msg1, send_frame_str1.c_str());
+		strcpy(send_msg2, send_frame_str2.c_str());
+		
+		// ROS_INFO("string size:%ld", send_frame_str.size());
+		required1 = parse_canframe(send_msg1, &ctrl_send1);
+		required2 = parse_canframe(send_msg2, &ctrl_send2);
+			
+		// send msg1
+		if (!required1){
+			fprintf(stderr, "\nWrong CAN-frame format!\n\n");
+			print_usage(argv[0]);
 			return 1;
 		}
-		mtu = ifr.ifr_mtu;
-		
-		if (mtu != CANFD_MTU) {
-			printf("CAN interface is not CAN FD capable - sorry.\n");
-			return 1;
-		}
-		
-		/* interface is ok - try to switch the socket into CAN FD mode */
-		if (setsockopt(s, SOL_CAN_RAW, CAN_RAW_FD_FRAMES,
-			&enable_canfd, sizeof(enable_canfd))){
+	
+	
+		if (required1 > (int)CAN_MTU) {
+			/* check if the frame fits into the CAN netdevice */
+			if (ioctl(s, SIOCGIFMTU, &ifr) < 0) {
+				perror("SIOCGIFMTU");
+				return 1;
+			}
+			mtu = ifr.ifr_mtu;
+	
+			if (mtu != CANFD_MTU) {
+				printf("CAN interface is not CAN FD capable - sorry.\n");
+				return 1;
+			}
+	
+			/* interface is ok - try to switch the socket into CAN FD mode */
+			if (setsockopt(s, SOL_CAN_RAW, CAN_RAW_FD_FRAMES,
+						&enable_canfd, sizeof(enable_canfd))){
 				printf("error when enabling CAN FD support\n");
 				return 1;
 			}
-		
-		/* ensure discrete CAN FD length values 0..8, 12, 16, 20, 24, 32, 64 */
-		frame.len = can_fd_dlc2len(can_fd_len2dlc(frame.len));
-		
-	}
 	
-	if (write(s, &ctrl_send2, required2) != required2) 
+			/* ensure discrete CAN FD length values 0..8, 12, 16, 20, 24, 32, 64 */
+			frame.len = can_fd_dlc2len(can_fd_len2dlc(frame.len));
+			
+		}
+		
+		if (write(s, &ctrl_send1, required1) != required1) 
 		{
 			perror("write");
 			return 1;
 		}
-	
-	// send msg3
-	if (!required3){
-		fprintf(stderr, "\nWrong CAN-frame format!\n\n");
-		print_usage(argv[0]);
-		return 1;
-	}
-	
-	
-	if (required3 > (int)CAN_MTU) {
-		/* check if the frame fits into the CAN netdevice */
-		if (ioctl(s, SIOCGIFMTU, &ifr) < 0) {
-			perror("SIOCGIFMTU");
-			return 1;
-		}
-		mtu = ifr.ifr_mtu;
 		
-		if (mtu != CANFD_MTU) {
-			printf("CAN interface is not CAN FD capable - sorry.\n");
-			return 1;
-		}
-		
-		/* interface is ok - try to switch the socket into CAN FD mode */
-		if (setsockopt(s, SOL_CAN_RAW, CAN_RAW_FD_FRAMES,
-			&enable_canfd, sizeof(enable_canfd))){
-				printf("error when enabling CAN FD support\n");
+		// send msg2
+		if (write(s, &ctrl_send2, required2) != required2) 
+			{
+				perror("write");
 				return 1;
 			}
-		
-		/* ensure discrete CAN FD length values 0..8, 12, 16, 20, 24, 32, 64 */
-		frame.len = can_fd_dlc2len(can_fd_len2dlc(frame.len));
-		
 	}
-	
-	if (write(s, &ctrl_send3, required3) != required3) 
-		{
-			perror("write");
-			return 1;
-		}
-
-	loop_rate.sleep();
-}
 
 	close(s);
 
