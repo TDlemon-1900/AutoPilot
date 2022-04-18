@@ -33,6 +33,19 @@ JS6904ChassisOnboardSFModelClass _model_Obj;
 // ultility_files::Msg_OBDFbk _OBDFbk;
 // ultility_files::Msg_VehicleChassisFbk _vehicleChassisFbk;
 
+int VCU_DrivingMode = 0; 
+int ParkingStatusRequest = 0;
+int GearRequest = 0;
+int TurnSignalRequest = 0;
+int AutomaticDoorOpeningRequest = 0; 
+int StopLampRequest = 0; 
+int LowBeamLampRequest = 0; 
+int SteeringWheelTurnRequest = 0;
+int SlowingDownRequest = 0;
+int RormentRequest = 0;
+int SystemFaultCode = 0;
+int Life = 0;
+
 void print_usage(char *prg)
 {
 	fprintf(stderr, "%s - send CAN-frames via CAN_RAW sockets.\n", prg);
@@ -111,57 +124,31 @@ void DealModelInput()
    
 }
 
-void SubMotionPlanningFbkHandler(const nav_msgs::Odometry::ConstPtr& msg)
-{
-    _model_Obj.JS6904ChassisOnboardSF_U.motion_msg_heart++;
-}
 
 void SubRemoteCmdHandler(const nav_msgs::Odometry::ConstPtr& msg)
 {
-    // _model_Obj.XiaoBaiChassisOnboardSF_U.moving_task_pause = msg->moving_task_pause;
-}
-
-void SubMovingCmdHandler(const nav_msgs::Odometry::ConstPtr& msg)
-{
-    //_movingCmd = *msg;
-    // _model_Obj.XiaoBaiChassisOnboardSF_U._movingCmd = _movingCmd;
-}
-
-void SubOBDFbkHandler(const nav_msgs::Odometry::ConstPtr& msg)
-{
-    //_OBDFbk = *msg;
-}
-
-void SubVehicleChassisFbk(const nav_msgs::Odometry::ConstPtr& msg)
-{
-    //_vehicleChassisFbk = *msg;
+	VCU_DrivingMode = msg->pose.pose.positon.x;
+	ParkingStatusRequest = msg->pose.pose.positon.y;
+	GearRequest = msg->pose.pose.positon.z;
+	TurnSignalRequest = msg->pose.pose.orientation.x;
+	AutomaticDoorOpeningRequest = msg->pose.pose.orientation.y; 
+	StopLampRequest = msg->pose.pose.orientation.z; 
+	LowBeamLampRequest = msg->pose.pose.orientation.w; 
+	SteeringWheelTurnRequest = (msg->twist.twist.linear.x + 870) * 10;
+	SlowingDownRequest = msg->twist.twist.linear.y * 2.5;
+	RormentRequest = msg->twist.twist.linear.z * 2.5;
+	SystemFaultCode = msg->twist.twist.angular.x;
+	Life = msg->twist.twist.linear.y;
 }
 
 int main(int argc, char **argv)
 {
 	// system("sudo modprobe pcan");
-	ros::init(argc, argv, "can_send");
+	ros::init(argc, argv, "can_send"); 
 	ros::NodeHandle _node;
+	
 	// ros通讯
-	// 接收_motionPlanningFbk
-    ros::Subscriber _subMotionPlanningFbk = _node.subscribe<nav_msgs::Odometry>
-                                     ("/motion_planning/MotionPlanningFbk", 1, SubMotionPlanningFbkHandler);
-    // void SubMotionPlanningFbkHandler(const ultility_files::Msg_MotionPlanningFbk::ConstPtr& msg);
-	// 接收RemoteCmd
-	ros::Subscriber _subRemoteCmd = _node.subscribe<nav_msgs::Odometry>
-                                    ("/remote_interface/RemoteCmd", 1, SubRemoteCmdHandler);
-    // void SubRemoteCmdHandler(const ultility_files::Msg_MovingCmd::ConstPtr& msg);
-	// 接收_movingCmd报文
-    ros::Subscriber _subMovingCmd = _node.subscribe<nav_msgs::Odometry>
-                                    ("/human_interface/MovingCmd", 1, SubMovingCmdHandler);
-    // void SubMovingCmdHandler(const ultility_files::Msg_MovingCmd::ConstPtr& msg);
-	// 接收_OBDFbk报文
-	ros::Subscriber _subOBDFbk = _node.subscribe<nav_msgs::Odometry>
-                                    ("obd", 1, SubOBDFbkHandler);
-	// 接收_vehicleChassisFbk报文
-	ros::Subscriber _subVehicleChassisFbk = _node.subscribe<nav_msgs::Odometry>
-                                    ("/vehicle_chassis_interface/VehicleChassisFbk", 1, SubVehicleChassisFbk);
-    
+	ros::Subscriber _subRemoteCmd = _node.subscribe<nav_msgs::Odometry>("/can_test", 1, SubRemoteCmdHandler);
 
 	ros::Rate loop_rate(20);
 
@@ -182,85 +169,12 @@ int main(int argc, char **argv)
 	struct canfd_frame ctrl_send2;
 	
 	// define data
-	int data1[10] = {0};
-	int data2[10] = {0};
+	int data1[8] = {0};
+	int data2[8] = {0};
 	
 	struct ifreq ifr;
 
-	int wheel_speed_FL_fault = 1;
-	int wheel_speed_FL = 8191;
-	int wheel_speed_FR_fault = 1;
-	int wheel_speed_FR = 8191;
-	int vehicle_speed = 8191;
-	int ABS_Vehicle_speed_valid = 1;
-	int ABS1_message_counter = 15;
-	int ABS1_checksum = 255;
-	int APA_Checksum = 255;
-	int APA_EpsOnReq = 1;
-	int APA_MsgCounter = 15;
-	int APA_SteerAngReq = 5000;
-	int APA_SteerAngSpdLimt = 5000;
-	int EMS_EngineSpeedError = 1;
-	int EMS_EngineSpeed = 5000;
-	int EMS_EngineStatus = 3;
-	int EleStrFailFlag = 3;
-	int ValidDriveSteeringTorque = 1;
-	int DriveSteeringTorque = 10;
-	int SAS1_msg_counter = 15;
-	int SAS1_checksum = 15;
-	int steering_angle_valid = 1;
-	int calibrated_status = 1;
-	int steering_angle_spd = 120;
-	int steering_angle = 500;
-	int EPS_ControlMode = 3;
-	int EPS_ExpectedState = 255;
-	int EPS_ExpectedCorner = 5000;
-	int EPS_ExpectedTorque = 25;
-	int SpeedOfCar = 220;
-	int CheckSum = 255;
-	int EPS_ActualState = 255;
-	int EPS_ActualCorner = 5000;
-	int EPS_ActualTorque = 25;
-	int EPS_AngleSensorStatus = 255;
-	int EPS_SensorStatus = 1;
-	int EPS_IndicatingLightStatus = 1;
-	int VCU_DrivingMode = 3;
-	int BrakeSwitch = 1;
-	int ParkingStatusFeedback = 1;
-	int GearFeedback = 3;
-	int DoorStatus = 1;
-	int GearOperationStatus = 1;
-	int ParkingOperationStatus = 1;
-	int VCU_FaultLevel = 3;
-	int BrakingControlMode = 1;
-	int ManualTakeoverStatus = 1;
-	int EPB_Status = 1;
-	int ActualMasterCylinderPressure = 20;
-	int MaximumSpeed = 255;
-	int SteeringWheelTorqueSignal = 30;
-	int SteeringWheelAngle = 2000;
-	int AverageSpeedOfFrontAxle = 100;
-	int LongitudinalAcceleration = 500;
-	int MotorFeedbackTorque = 2000;
-	int MaximumBrakingDeceleration = 25;
-	int PedalPercentage = 100;
-	int VCUDrivingMode = 3;
-	int ParkingStatusRequest = 1;
-	int GearRequest = 3;
-	int TurnSignalRequest = 3;
-	int AutomaticDoorOpeningRequest = 1;
-	int StopLampRequest = 1;
-	int LowBeamLampRequest = 1;
-	
-	int SteeringWheelTurnRequest = 5000; // 在定义里修改偏移量
-	
-	int SlowingDownRequest = 200;
-	int RormentRequest = 1000;
-	int SystemState = 3;
-	int SystemFaultCode = 255;
-	int BrakeRequestPercentage = 100;
-	int DrivingRequestsPercent = 100;
-	int Life = 15;
+
 
 	_model_Obj.initialize();
 
@@ -298,8 +212,8 @@ int main(int argc, char **argv)
 		required_mtu = 16;
 	
 		// 定义发送ID
-		std::string send_frame_str1 = "0x18FF909F#";
-		std::string send_frame_str2 = "0x18EF918F#";
+		std::string send_frame_str1 = "18FF909F#";
+		std::string send_frame_str2 = "18EF918F#";
 		
 		// 定义发送数据的内容，数据来自模型；数据放入字符串中
 		std::string send_data_str1;
@@ -308,10 +222,10 @@ int main(int argc, char **argv)
 		// data1
 		data1[0] = (ParkingStatusRequest * 64) | VCU_DrivingMode;
 		data1[1] = (LowBeamLampRequest * 128) | (StopLampRequest * 32) | (AutomaticDoorOpeningRequest * 16) | (TurnSignalRequest * 4) | GearRequest;
-		data1[2] = ((SteeringWheelTurnRequest + 870) * 10) & 0xff; 
-		data1[3] = (((SteeringWheelTurnRequest + 870) * 10) & 0xff00) >> 8;
-		data1[4] = (SlowingDownRequest * 2.5);
-		data1[5] = RormentRequest * 2.5;
+		data1[2] = SteeringWheelTurnRequest & 0xff; 
+		data1[3] = (SteeringWheelTurnRequest & 0xff00) >> 8;
+		data1[4] = SlowingDownRequest;
+		data1[5] = RormentRequest;
 		
 		// data2
 		data2[0] = SystemState;
@@ -336,8 +250,8 @@ int main(int argc, char **argv)
 		send_frame_str2 += send_data_str2;
 	
 		// define char array
-		char send_msg1[20];
-		char send_msg2[20];
+		char send_msg1[25];
+		char send_msg2[25];
 		
 		// 发送的整个帧转为字符数组，并转为can frame
 		strcpy(send_msg1, send_frame_str1.c_str());
