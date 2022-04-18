@@ -298,8 +298,8 @@ int main(int argc, char **argv)
 		required_mtu = 16;
 	
 		// 定义发送ID
-		std::string send_frame_str1 = "0x18FF909F";
-		std::string send_frame_str2 = "0x18EF918F";
+		std::string send_frame_str1 = "0x18FF909F#";
+		std::string send_frame_str2 = "0x18EF918F#";
 		
 		// 定义发送数据的内容，数据来自模型；数据放入字符串中
 		std::string send_data_str1;
